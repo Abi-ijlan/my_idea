@@ -10,14 +10,22 @@ const requestJson = async <T>(input: RequestInfo | URL, init?: RequestInit): Pro
   const response = await fetch(input, init);
 
   if (!response.ok) {
-    let message = 'Cloud storage request failed.';
+    const path = typeof input === 'string' ? input : input.toString();
+    let message = `Cloud storage request failed (${response.status} ${response.statusText || 'Error'}) at ${path}.`;
     try {
-      const data = await response.json();
+      const data = await response.clone().json();
       if (typeof data?.error === 'string') {
         message = data.error;
       }
     } catch {
-      message = response.statusText || message;
+      try {
+        const text = await response.text();
+        if (text.trim()) {
+          message = `${message} ${text.trim().slice(0, 160)}`;
+        }
+      } catch {
+        // Keep the status-based message.
+      }
     }
     throw new Error(message);
   }

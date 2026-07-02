@@ -1,4 +1,4 @@
-import { supabase } from '../../api/_shared';
+import { supabase } from '../_shared';
 
 const mapIdea = (item: any) => ({
   id: item.id,
