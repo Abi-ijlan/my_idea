@@ -1,0 +1,8 @@
+{
+  "name": "idea_vault_telegram",
+  "description": "An ultra-modern, dark-themed digital notebook for capturing, organizing, and querying your breakthrough thoughts with real-time cloud sync and multi-device access.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

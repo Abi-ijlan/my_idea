@@ -1,0 +1,86 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Globally Hardened Helper Functions
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidIdea(data) {
+      return data.keys().hasAll(['title', 'description', 'category', 'color', 'createdAt', 'updatedAt', 'isPinned', 'userId'])
+        && data.keys().size() == 8
+        && data.title is string && data.title.size() <= 200
+        && data.description is string && data.description.size() <= 10000
+        && data.category is string && data.category in ['Startup', 'Creative', 'Tech', 'Concept', 'Design', 'Other']
+        && data.color is string && data.color.size() <= 50
+        && data.createdAt is int && data.createdAt > 0
+        && data.updatedAt is int && data.updatedAt > 0
+        && data.isPinned is bool
+        && data.userId is string && data.userId == request.auth.uid;
+    }
+
+    // 3. Ideas Collection - Path Hardened
+    match /ideas/{ideaId} {
+      // Owner-only read access
+      allow get: if isSignedIn() && isOwner(existing().userId);
+      
+      // Relational client listing constraint (Query Enforcer)
+      allow list: if isSignedIn() && existing().userId == request.auth.uid;
+
+      // Schema/Type checked creation
+      allow create: if isVerified()
+        && isValidId(ideaId)
+        && isValidIdea(incoming())
+        && incoming().createdAt <= request.time.toMillis()
+        && incoming().createdAt >= request.time.toMillis() - 300000; // 5 minutes temporal tolerance
+
+      // Segmented update actions (Action-Based Update Pattern)
+      allow update: if isVerified()
+        && isValidId(ideaId)
+        && isValidIdea(incoming())
+        && isOwner(existing().userId)
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt <= request.time.toMillis()
+        && incoming().updatedAt >= request.time.toMillis() - 300000
+        && (
+          // Action 1: Toggle Pin State
+          (incoming().diff(existing()).affectedKeys().hasOnly(['isPinned', 'updatedAt'])) ||
+          
+          // Action 2: Edit Idea Content
+          (incoming().diff(existing()).affectedKeys().hasOnly(['title', 'description', 'category', 'color', 'updatedAt']))
+        );
+
+      // Owner-only deletion
+      allow delete: if isVerified()
+        && isValidId(ideaId)
+        && isOwner(existing().userId);
+    }
+  }
+}

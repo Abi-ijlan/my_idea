@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Outfit", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+}
+
+@utility premium-bg {
+  background:
+    radial-gradient(circle at 10% 20%, rgba(168, 85, 247, 0.18), transparent 40%),
+    radial-gradient(circle at 80% 20%, rgba(6, 182, 212, 0.12), transparent 45%),
+    radial-gradient(circle at 90% 80%, rgba(236, 72, 153, 0.15), transparent 35%),
+    linear-gradient(180deg, #07040d 0%, #0b0613 50%, #11071b 100%);
+}
+
+@utility glass-panel {
+  background: rgba(23, 16, 34, 0.45);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 
+    0 10px 40px rgba(0, 0, 0, 0.5), 
+    inset 0 1px 1px rgba(255, 255, 255, 0.03);
+}
+
+@utility glass-card {
+  background: rgba(16, 10, 26, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid var(--card-border-color, rgba(255, 255, 255, 0.16));
+  box-shadow:
+    0 10px 45px rgba(0, 0, 0, 0.6),
+    0 0 50px var(--card-glow-color, rgba(168, 85, 247, 0.05));
+  transition: all 400ms cubic-bezier(0.4, 0, 0.2, 1);
+  transform: translateY(0);
+
+  &:hover {
+    transform: translateY(-5px);
+    border-color: var(--card-border-hover-color, rgba(6, 182, 212, 0.45));
+    background: rgba(22, 14, 34, 0.94);
+    box-shadow: 
+      0 20px 55px rgba(0, 0, 0, 0.75), 
+      0 0 70px var(--card-glow-hover-color, rgba(6, 182, 212, 0.22));
+  }
+}
+
+@utility glass-input {
+  background: rgba(16, 10, 26, 0.75);
+  border: 1px solid rgba(6, 182, 212, 0.3);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 
+    0 0 15px rgba(6, 182, 212, 0.1),
+    inset 0 0 20px rgba(255, 255, 255, 0.02);
+  transition: all 300ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: rgba(6, 182, 212, 0.5);
+    background: rgba(16, 10, 26, 0.85);
+    box-shadow: 
+      0 0 20px rgba(6, 182, 212, 0.18),
+      inset 0 0 20px rgba(255, 255, 255, 0.04);
+  }
+
+  &:focus {
+    border-color: #06b6d4;
+    background: rgba(16, 10, 26, 0.95);
+    box-shadow: 
+      0 0 28px rgba(6, 182, 212, 0.45),
+      inset 0 0 15px rgba(6, 182, 212, 0.1);
+    outline: none;
+  }
+}
+
+@utility neon-divider {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(6, 182, 212, 0.4),
+    rgba(168, 85, 247, 0.4),
+    transparent
+  );
+}
+
+/* Float Animation for particles and orbs */
+@keyframes float-slow {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(-20px) scale(1.05);
+  }
+}
+
+@keyframes float-slower {
+  0%, 100% {
+    transform: translateY(0px) scale(1);
+  }
+  50% {
+    transform: translateY(15px) scale(0.95);
+  }
+}
+
+@keyframes drift {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+  50% {
+    transform: translate(100px, 80px) rotate(180deg);
+  }
+  100% {
+    transform: translate(0, 0) rotate(360deg);
+  }
+}
+
+.animate-float-1 {
+  animation: float-slow 12s ease-in-out infinite;
+}
+
+.animate-float-2 {
+  animation: float-slower 16s ease-in-out infinite;
+}
+
+.animate-drift {
+  animation: drift 25s linear infinite;
+}
+
+/* Custom scrollbars for a premium dark mode feel */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.15);
+}

@@ -1,0 +1,12 @@
+{
+  "timestamp": "2026-07-02T02:54:49.003Z",
+  "webhookInfo": {
+    "url": "https://ais-pre-4s6i4hdcpix54xllgw5j7z-569781306239.asia-southeast1.run.app/api/telegram/webhook",
+    "has_custom_certificate": false,
+    "pending_update_count": 9,
+    "last_error_date": 1782960829,
+    "last_error_message": "Wrong response from the webhook: 302 Found",
+    "max_connections": 40,
+    "ip_address": "34.143.73.2"
+  }
+}
