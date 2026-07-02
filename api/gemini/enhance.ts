@@ -1,4 +1,4 @@
-import { ai } from '../_shared';
+import { getGeminiClient } from '../_shared';
 
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
@@ -11,7 +11,8 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Title and description are required.' });
   }
 
-  if (!process.env.GEMINI_API_KEY) {
+  const ai = getGeminiClient();
+  if (!ai) {
     return res.status(503).json({ error: 'GEMINI_API_KEY environment variable is not configured.' });
   }
 

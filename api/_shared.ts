@@ -1,40 +1,36 @@
-import fs from 'fs';
-import path from 'path';
-import dotenv from 'dotenv';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { GoogleGenAI } from '@google/genai';
-
-const loadEnvFile = (filePath: string) => {
-  try {
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-
-    const parsed = dotenv.parse(fs.readFileSync(filePath, 'utf8'));
-    for (const [key, value] of Object.entries(parsed)) {
-      if (value !== undefined && (process.env[key] === undefined || process.env[key] === '')) {
-        process.env[key] = value;
-      }
-    }
-  } catch (error) {
-    console.warn(`Unable to load environment file ${filePath}:`, error);
-  }
-};
-
-loadEnvFile(path.resolve('.env.local'));
-loadEnvFile(path.resolve('.env'));
 
 const supabaseUrl = process.env.SUPABASE_URL?.trim();
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim();
 
-export const supabase: SupabaseClient | null =
-  supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+const createSupabaseClient = (): SupabaseClient | null => {
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return null;
+  }
 
-export const ai = new GoogleGenAI({
-  apiKey: process.env.GEMINI_API_KEY,
-  httpOptions: {
-    headers: {
-      'User-Agent': 'aistudio-build',
+  try {
+    return createClient(supabaseUrl, supabaseAnonKey);
+  } catch (error) {
+    console.error('Supabase client initialization failed:', error);
+    return null;
+  }
+};
+
+export const supabase = createSupabaseClient();
+
+export const getGeminiClient = () => {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
+    return null;
+  }
+
+  return new GoogleGenAI({
+    apiKey,
+    httpOptions: {
+      headers: {
+        'User-Agent': 'aistudio-build',
+      },
     },
-  },
-});
+  });
+};
