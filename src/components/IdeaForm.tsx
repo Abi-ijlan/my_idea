@@ -9,7 +9,7 @@ import { Sparkles, Send } from 'lucide-react';
 import { IdeaCategory, CATEGORIES } from '../types';
 
 interface IdeaFormProps {
-  onSave: (ideaData: { title: string; description: string; category: IdeaCategory }) => void;
+  onSave: (ideaData: { title: string; description: string; category: IdeaCategory }) => Promise<void>;
 }
 
 export default function IdeaForm({ onSave }: IdeaFormProps) {
@@ -18,7 +18,7 @@ export default function IdeaForm({ onSave }: IdeaFormProps) {
   const [category, setCategory] = useState<IdeaCategory>('Tech');
   const [error, setError] = useState('');
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
     if (!title.trim()) {
@@ -31,11 +31,16 @@ export default function IdeaForm({ onSave }: IdeaFormProps) {
     }
 
     setError('');
-    onSave({
-      title: title.trim(),
-      description: description.trim(),
-      category,
-    });
+    try {
+      await onSave({
+        title: title.trim(),
+        description: description.trim(),
+        category,
+      });
+    } catch (error: any) {
+      setError(error.message || 'Unable to save this idea to cloud storage.');
+      return;
+    }
 
     // Reset fields
     setTitle('');

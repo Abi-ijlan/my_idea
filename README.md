@@ -1,6 +1,6 @@
 # Idea Vault
 
-A lightweight idea manager with a local-first experience and optional Supabase-backed persistence.
+A lightweight cloud-based idea manager backed by Supabase persistence.
 
 ## Run locally
 
@@ -10,7 +10,7 @@ Prerequisites: Node.js
    `npm install`
 2. Create a local environment file from [.env.local](.env.local) and add your values:
    - `GEMINI_API_KEY` for AI features
-   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` for persistent storage
+   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` for cloud storage
 3. Start the app:
    `npm run dev -- --host 0.0.0.0`
 4. Open http://localhost:3000
@@ -43,4 +43,4 @@ create table if not exists ideas (
 );
 ```
 
-Once Supabase is configured, ideas will persist across refreshes and devices.
+Supabase is required. Ideas are stored in the cloud and no browser local storage fallback is used.

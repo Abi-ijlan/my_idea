@@ -6,19 +6,34 @@
 // Express server is deprecated for Vercel deployment.
 // API routes are now served from the /api directory.
 
+import express from 'express';
+import path from 'path';
+import dotenv from 'dotenv';
+import { createClient } from '@supabase/supabase-js';
+import { GoogleGenAI } from '@google/genai';
+import { createServer as createViteServer } from 'vite';
+
+dotenv.config({ path: '.env.local' });
+dotenv.config();
+
+const app = express();
+app.use(express.json());
+
+const PORT = Number(process.env.PORT) || 3000;
+
 const supabaseUrl = process.env.SUPABASE_URL?.trim();
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim();
 
-let supabase: ReturnType<typeof createClient> | null = null;
+let supabase: any = null;
 if (supabaseUrl && supabaseAnonKey) {
   try {
     supabase = createClient(supabaseUrl, supabaseAnonKey);
     console.log('Supabase client initialized successfully.');
   } catch (error) {
-    console.warn('Supabase client initialization failed; continuing without backend persistence.', error);
+    console.warn('Supabase client initialization failed; cloud persistence is unavailable.', error);
   }
 } else {
-  console.warn('Supabase environment values are missing; backend persistence is disabled.');
+  console.warn('Supabase environment values are missing; cloud persistence is unavailable.');
 }
 
 const ai = new GoogleGenAI({
@@ -39,7 +54,7 @@ app.get('/api/ideas', async (req, res) => {
   const targetUserId = typeof userId === 'string' ? userId : 'local-user';
 
   if (!supabase) {
-    return res.json([]);
+    return res.status(503).json({ error: 'Supabase is not configured.' });
   }
 
   const { data, error } = await supabase
@@ -92,7 +107,7 @@ app.post('/api/ideas', async (req, res) => {
 
   const { data, error } = await supabase.from('ideas').insert(payload).select('*').single();
 
-  if (error) {
+  if (error || !data) {
     console.error('Supabase ideas insert error:', error);
     return res.status(500).json({ error: 'Failed to create idea' });
   }
@@ -129,7 +144,7 @@ app.put('/api/ideas/:id', async (req, res) => {
 
   const { data, error } = await supabase.from('ideas').update(payload).eq('id', id).select('*').single();
 
-  if (error) {
+  if (error || !data) {
     console.error('Supabase ideas update error:', error);
     return res.status(500).json({ error: 'Failed to update idea' });
   }

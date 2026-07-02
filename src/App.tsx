@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Sparkles, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Sparkles, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Idea, IdeaCategory, CATEGORIES } from './types';
 import IdeaForm from './components/IdeaForm';
@@ -49,11 +49,17 @@ export default function App() {
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory | 'All'>('All');
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'alphabetical'>('latest');
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
+  const [cloudError, setCloudError] = useState<string | null>(null);
 
   useEffect(() => {
     const loadIdeasFromBackend = async () => {
-      const loadedIdeas = await loadIdeas(LOCAL_USER_ID);
-      setIdeas(loadedIdeas);
+      try {
+        const loadedIdeas = await loadIdeas(LOCAL_USER_ID);
+        setIdeas(loadedIdeas);
+        setCloudError(null);
+      } catch (error: any) {
+        setCloudError(error.message || 'Unable to connect to cloud storage.');
+      }
     };
 
     void loadIdeasFromBackend();
@@ -69,31 +75,46 @@ export default function App() {
     }
   }, [isConfirmingDeleteAll]);
 
-const handleAddIdea = async (ideaData: { title: string; description: string; category: IdeaCategory }) => {
-    const newIdea = await createIdea({
-      title: ideaData.title,
-      description: ideaData.description,
-      category: ideaData.category,
-      color: 'cyan',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      isPinned: false,
-      userId: LOCAL_USER_ID,
-    });
+  const handleAddIdea = async (ideaData: { title: string; description: string; category: IdeaCategory }) => {
+    try {
+      const newIdea = await createIdea({
+        title: ideaData.title,
+        description: ideaData.description,
+        category: ideaData.category,
+        color: 'cyan',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+        isPinned: false,
+        userId: LOCAL_USER_ID,
+      });
 
-    setIdeas((prev) => [newIdea, ...prev]);
+      setIdeas((prev) => [newIdea, ...prev]);
+      setCloudError(null);
+    } catch (error: any) {
+      const message = error.message || 'Unable to save this idea to cloud storage.';
+      setCloudError(message);
+      throw new Error(message);
+    }
   };
 
   const handleUpdateIdea = async (id: string, updatedFields: Partial<Idea>) => {
-    const updatedIdea = await updateIdea(id, updatedFields, LOCAL_USER_ID);
-    if (!updatedIdea) return;
-
-    setIdeas((prev) => prev.map((idea) => (idea.id === id ? updatedIdea : idea)));
+    try {
+      const updatedIdea = await updateIdea(id, updatedFields, LOCAL_USER_ID);
+      setIdeas((prev) => prev.map((idea) => (idea.id === id ? updatedIdea : idea)));
+      setCloudError(null);
+    } catch (error: any) {
+      setCloudError(error.message || 'Unable to update this idea in cloud storage.');
+    }
   };
 
   const handleDeleteIdea = async (id: string) => {
-    await deleteIdea(id, LOCAL_USER_ID);
-    setIdeas((prev) => prev.filter((idea) => idea.id !== id));
+    try {
+      await deleteIdea(id, LOCAL_USER_ID);
+      setIdeas((prev) => prev.filter((idea) => idea.id !== id));
+      setCloudError(null);
+    } catch (error: any) {
+      setCloudError(error.message || 'Unable to delete this idea from cloud storage.');
+    }
   };
 
   const handleSeedSamples = async () => {
@@ -117,13 +138,19 @@ const handleAddIdea = async (ideaData: { title: string; description: string; cat
       setIdeas((prev) => [...newIdeas, ...prev]);
     } catch (e) {
       console.error('Failed to seed sample ideas:', e);
+      setCloudError(e instanceof Error ? e.message : 'Unable to seed sample ideas in cloud storage.');
     }
   };
 
   const handleDeleteAllIdeas = async () => {
-    await clearIdeas(LOCAL_USER_ID);
-    setIdeas([]);
-    setIsConfirmingDeleteAll(false);
+    try {
+      await clearIdeas(LOCAL_USER_ID);
+      setIdeas([]);
+      setIsConfirmingDeleteAll(false);
+      setCloudError(null);
+    } catch (error: any) {
+      setCloudError(error.message || 'Unable to clear cloud ideas.');
+    }
   };
 
   const processedIdeas = useMemo(() => {
@@ -205,14 +232,24 @@ const handleAddIdea = async (ideaData: { title: string; description: string; cat
               className="flex items-center gap-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] backdrop-blur-xl px-4.5 py-3 rounded-2xl transition-all duration-300 shadow-[inset_0_0_20px_rgba(255,255,255,0.01)]"
             >
               <div className="flex flex-col text-right">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Local-only mode</span>
-                <span className="text-xs text-cyan-300 font-semibold font-mono truncate max-w-[185px]">Ideas stay in this browser</span>
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Cloud storage mode</span>
+                <span className="text-xs text-cyan-300 font-semibold font-mono truncate max-w-[185px]">Supabase sync required</span>
               </div>
             </motion.div>
           </header>
 
           {/* Premium Neon Divider */}
           <div className="neon-divider animate-pulse" style={{ animationDuration: '4s' }} />
+
+          {cloudError && (
+            <div className="flex items-start gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-xs text-rose-200">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+              <div>
+                <p className="font-semibold">Cloud storage is unavailable.</p>
+                <p className="mt-1 text-rose-100/75">{cloudError}</p>
+              </div>
+            </div>
+          )}
 
           {/* Input Section */}
           <section id="vault-creator">
@@ -379,7 +416,7 @@ const handleAddIdea = async (ideaData: { title: string; description: string; cat
       {/* Footer */}
       <footer className="relative z-10 border-t border-white/[0.04] mt-24">
         <div className="max-w-6xl mx-auto px-6 py-12 flex flex-col sm:flex-row items-center justify-between gap-6 text-[11px] text-white/40 font-mono">
-          <p>Idea Vault — Secure Cloud & Local Fallback Persistence</p>
+          <p>Idea Vault - Secure Cloud Persistence</p>
           
           <div className="flex items-center gap-3">
             <span className="relative flex h-2 w-2">

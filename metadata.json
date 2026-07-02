@@ -1,6 +1,6 @@
 {
   "name": "idea_vault",
-  "description": "A local-first digital notebook for capturing, organizing, and refining ideas without authentication or external integrations.",
+  "description": "A cloud-based digital notebook for capturing, organizing, and refining ideas with Supabase persistence.",
   "requestFramePermissions": [],
   "majorCapabilities": [
     "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
