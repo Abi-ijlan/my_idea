@@ -225,17 +225,6 @@ export default function App() {
               </p>
             </motion.div>
 
-            <motion.div 
-              initial={{ opacity: 0, x: 30 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="flex items-center gap-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] backdrop-blur-xl px-4.5 py-3 rounded-2xl transition-all duration-300 shadow-[inset_0_0_20px_rgba(255,255,255,0.01)]"
-            >
-              <div className="flex flex-col text-right">
-                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Cloud storage mode</span>
-                <span className="text-xs text-cyan-300 font-semibold font-mono truncate max-w-[185px]">Supabase sync required</span>
-              </div>
-            </motion.div>
           </header>
 
           {/* Premium Neon Divider */}

@@ -106,7 +106,7 @@ export default function IdeaForm({ onSave }: IdeaFormProps) {
             Capture Idea
           </h2>
           <p className="text-white/50 text-xs mt-1 font-light">
-            Record your thoughts inside the premium, high-contrast dark space.
+            Turn a raw spark into a clear concept worth building.
           </p>
         </div>
         <div className="flex items-center gap-2 self-start md:self-center px-3 py-1.5 rounded-xl bg-cyan-500/8 border border-cyan-500/20 text-[10px] font-mono text-cyan-300 uppercase tracking-wider font-bold">
