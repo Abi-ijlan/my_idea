@@ -1,5 +1,3 @@
-import { getGeminiClient } from '../_shared';
-
 export default async function handler(req: any, res: any) {
   if (req.method !== 'POST') {
     res.setHeader('Allow', ['POST']);
@@ -11,12 +9,22 @@ export default async function handler(req: any, res: any) {
     return res.status(400).json({ error: 'Title and description are required.' });
   }
 
-  const ai = getGeminiClient();
-  if (!ai) {
+  const apiKey = process.env.GEMINI_API_KEY?.trim();
+  if (!apiKey) {
     return res.status(503).json({ error: 'GEMINI_API_KEY environment variable is not configured.' });
   }
 
   try {
+    const { GoogleGenAI } = await import('@google/genai');
+    const ai = new GoogleGenAI({
+      apiKey,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
+        },
+      },
+    });
+
     let prompt = '';
 
     if (action === 'enhance') {
