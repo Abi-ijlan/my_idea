@@ -3,38 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import express from 'express';
-import fs from 'fs';
-import path from 'path';
-import { createServer as createViteServer } from 'vite';
-import { GoogleGenAI } from '@google/genai';
-import dotenv from 'dotenv';
-import { createClient } from '@supabase/supabase-js';
-
-const loadEnvFile = (filePath: string) => {
-  try {
-    if (!fs.existsSync(filePath)) {
-      return;
-    }
-
-    const parsed = dotenv.parse(fs.readFileSync(filePath, 'utf8'));
-    for (const [key, value] of Object.entries(parsed)) {
-      if (value !== undefined && (process.env[key] === undefined || process.env[key] === '')) {
-        process.env[key] = value;
-      }
-    }
-  } catch (error) {
-    console.warn(`Unable to load environment file ${filePath}:`, error);
-  }
-};
-
-loadEnvFile(path.resolve('.env.local'));
-loadEnvFile(path.resolve('.env'));
-
-const app = express();
-app.use(express.json());
-
-const PORT = 3000;
+// Express server is deprecated for Vercel deployment.
+// API routes are now served from the /api directory.
 
 const supabaseUrl = process.env.SUPABASE_URL?.trim();
 const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim();
