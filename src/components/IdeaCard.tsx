@@ -290,36 +290,36 @@ export default function IdeaCard({ idea, onDelete, onUpdate }: IdeaCardProps) {
                 )}
               </div>
 
-              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+              <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                 <button
                   id={`btn-pin-${idea.id}`}
                   onClick={() => onUpdate(idea.id, { isPinned: !idea.isPinned })}
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${
+                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${
                     idea.isPinned
                       ? colors.actionButtonActive
                       : colors.actionButtonHover
                   }`}
                   title={idea.isPinned ? 'Unpin' : 'Pin'}
                 >
-                  <Pin className={`h-3.5 w-3.5 ${idea.isPinned ? 'fill-current' : ''}`} />
+                  <Pin className={`h-4 w-4 md:h-3.5 md:w-3.5 ${idea.isPinned ? 'fill-current' : ''}`} />
                 </button>
 
                 <button
                   id={`btn-edit-${idea.id}`}
                   onClick={() => setIsEditing(true)}
-                  className={`h-7 w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${colors.actionButtonHover}`}
+                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${colors.actionButtonHover}`}
                   title="Edit"
                 >
-                  <Edit2 className="h-3.5 w-3.5" />
+                  <Edit2 className="h-4 w-4 md:h-3.5 md:w-3.5" />
                 </button>
 
                 <button
                   id={`btn-delete-${idea.id}`}
                   onClick={() => onDelete(idea.id)}
-                  className="h-7 w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 hover:shadow-[0_0_12px_rgba(244,63,94,0.2)] hover:-translate-y-0.5"
+                  className="h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 hover:shadow-[0_0_12px_rgba(244,63,94,0.2)] hover:-translate-y-0.5"
                   title="Delete"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-4 w-4 md:h-3.5 md:w-3.5" />
                 </button>
               </div>
             </div>
