@@ -4,23 +4,52 @@
  */
 
 import express from 'express';
+import fs from 'fs';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 import { createClient } from '@supabase/supabase-js';
 
-dotenv.config();
+const loadEnvFile = (filePath: string) => {
+  try {
+    if (!fs.existsSync(filePath)) {
+      return;
+    }
+
+    const parsed = dotenv.parse(fs.readFileSync(filePath, 'utf8'));
+    for (const [key, value] of Object.entries(parsed)) {
+      if (value !== undefined && (process.env[key] === undefined || process.env[key] === '')) {
+        process.env[key] = value;
+      }
+    }
+  } catch (error) {
+    console.warn(`Unable to load environment file ${filePath}:`, error);
+  }
+};
+
+loadEnvFile(path.resolve('.env.local'));
+loadEnvFile(path.resolve('.env'));
 
 const app = express();
 app.use(express.json());
 
 const PORT = 3000;
 
-const supabase = createClient(
-  process.env.SUPABASE_URL || '',
-  process.env.SUPABASE_ANON_KEY || '',
-);
+const supabaseUrl = process.env.SUPABASE_URL?.trim();
+const supabaseAnonKey = process.env.SUPABASE_ANON_KEY?.trim();
+
+let supabase: ReturnType<typeof createClient> | null = null;
+if (supabaseUrl && supabaseAnonKey) {
+  try {
+    supabase = createClient(supabaseUrl, supabaseAnonKey);
+    console.log('Supabase client initialized successfully.');
+  } catch (error) {
+    console.warn('Supabase client initialization failed; continuing without backend persistence.', error);
+  }
+} else {
+  console.warn('Supabase environment values are missing; backend persistence is disabled.');
+}
 
 const ai = new GoogleGenAI({
   apiKey: process.env.GEMINI_API_KEY,
@@ -32,14 +61,14 @@ const ai = new GoogleGenAI({
 });
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, supabaseConfigured: Boolean(supabase) });
 });
 
 app.get('/api/ideas', async (req, res) => {
   const { userId } = req.query;
   const targetUserId = typeof userId === 'string' ? userId : 'local-user';
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!supabase) {
     return res.json([]);
   }
 
@@ -75,7 +104,7 @@ app.post('/api/ideas', async (req, res) => {
     return res.status(400).json({ error: 'Title and description are required.' });
   }
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!supabase) {
     return res.status(503).json({ error: 'Supabase is not configured.' });
   }
 
@@ -115,7 +144,7 @@ app.put('/api/ideas/:id', async (req, res) => {
   const { id } = req.params;
   const updates = req.body;
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!supabase) {
     return res.status(503).json({ error: 'Supabase is not configured.' });
   }
 
@@ -152,7 +181,7 @@ app.delete('/api/ideas/:id', async (req, res) => {
   const { id } = req.params;
   const { userId } = req.body;
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!supabase) {
     return res.status(503).json({ error: 'Supabase is not configured.' });
   }
 
@@ -170,7 +199,7 @@ app.delete('/api/ideas', async (req, res) => {
   const { userId } = req.query;
   const targetUserId = typeof userId === 'string' ? userId : 'local-user';
 
-  if (!process.env.SUPABASE_URL || !process.env.SUPABASE_ANON_KEY) {
+  if (!supabase) {
     return res.status(503).json({ error: 'Supabase is not configured.' });
   }
 
