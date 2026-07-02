@@ -1,20 +1,46 @@
-<div align="center">
-<img width="1200" height="475" alt="GHBanner" src="https://ai.google.dev/static/site-assets/images/share-ais-513315318.png" />
-</div>
+# Idea Vault
 
-# Run and deploy your AI Studio app
+A lightweight idea manager with a local-first experience and optional Supabase-backed persistence.
 
-This contains everything you need to run your app locally.
+## Run locally
 
-View your app in AI Studio: https://ai.studio/apps/135af57d-b335-430e-9c72-af9daef61c53
-
-## Run Locally
-
-**Prerequisites:**  Node.js
-
+Prerequisites: Node.js
 
 1. Install dependencies:
    `npm install`
-2. Set the `GEMINI_API_KEY` in [.env.local](.env.local) to your Gemini API key
-3. Run the app:
-   `npm run dev`
+2. Create a local environment file from [.env.local](.env.local) and add your values:
+   - `GEMINI_API_KEY` for AI features
+   - `SUPABASE_URL` and `SUPABASE_ANON_KEY` for persistent storage
+3. Start the app:
+   `npm run dev -- --host 0.0.0.0`
+4. Open http://localhost:3000
+
+## Supabase setup
+
+1. Create a Supabase project.
+2. Open Project Settings → API.
+3. Copy the Project URL and anon public key.
+4. Add them to [.env.local](.env.local):
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_ANON_KEY=your-anon-key
+```
+
+5. Create an `ideas` table with this SQL:
+
+```sql
+create table if not exists ideas (
+  id text primary key,
+  title text not null,
+  description text not null,
+  category text,
+  color text,
+  created_at bigint,
+  updated_at bigint,
+  is_pinned boolean default false,
+  user_id text not null
+);
+```
+
+Once Supabase is configured, ideas will persist across refreshes and devices.
