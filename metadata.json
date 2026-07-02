@@ -1,8 +1,6 @@
 {
   "name": "idea_vault",
-  "description": "A cloud-based digital notebook for capturing, organizing, and refining ideas with Supabase persistence.",
+  "description": "A cloud-based digital notebook for capturing and organizing ideas with Supabase persistence.",
   "requestFramePermissions": [],
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "majorCapabilities": []
 }

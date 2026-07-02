@@ -5,7 +5,7 @@
 
 import { useState, CSSProperties } from 'react';
 import { motion } from 'motion/react';
-import { Trash2, Edit2, Check, X, Pin, Sparkles, ListTodo, Code, RotateCw } from 'lucide-react';
+import { Trash2, Edit2, Check, X, Pin } from 'lucide-react';
 import { Idea, CATEGORIES, IdeaCategory } from '../types';
 
 interface IdeaCardProps {
@@ -147,69 +147,6 @@ export default function IdeaCard({ idea, onDelete, onUpdate }: IdeaCardProps) {
   const [editTitle, setEditTitle] = useState(idea.title || '');
   const [editDescription, setEditDescription] = useState(idea.description || '');
   const [editCategory, setEditCategory] = useState<IdeaCategory>(idea.category || 'Other');
-
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [showAiSection, setShowAiSection] = useState(false);
-  const [aiResult, setAiResult] = useState('');
-  const [enhancedResult, setEnhancedResult] = useState<{ title: string; description: string } | null>(null);
-  const [aiType, setAiType] = useState<'enhance' | 'next-steps' | 'tech-stack' | null>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
-
-  const handleAiAction = async (action: 'enhance' | 'next-steps' | 'tech-stack') => {
-    if (isAiLoading) return;
-
-    setAiError(null);
-    setIsAiLoading(true);
-    setAiType(action);
-    setShowAiSection(true);
-    setAiResult('');
-    setEnhancedResult(null);
-
-    try {
-      const response = await fetch('/api/gemini/enhance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          title: idea.title,
-          description: idea.description,
-          category: idea.category,
-          action,
-        }),
-      });
-
-      if (!response.ok) {
-        const errData = await response.json();
-        throw new Error(errData.error || 'Failed to communicate with AI');
-      }
-
-      const data = await response.json();
-
-      if (action === 'enhance') {
-        setEnhancedResult({
-          title: data.title || '',
-          description: data.description || '',
-        });
-      } else {
-        setAiResult(data.result || '');
-      }
-    } catch (err: any) {
-      console.error('AI error:', err);
-      setAiError(err.message || 'An error occurred.');
-    } finally {
-      setIsAiLoading(false);
-    }
-  };
-
-  const handleApplyRefinement = () => {
-    if (!enhancedResult) return;
-    onUpdate(idea.id, {
-      title: enhancedResult.title,
-      description: enhancedResult.description,
-      updatedAt: Date.now(),
-    });
-    setShowAiSection(false);
-    setEnhancedResult(null);
-  };
 
   const colors = CATEGORY_COLORS[idea.category] || CATEGORY_COLORS['Other'];
 
@@ -403,128 +340,7 @@ export default function IdeaCard({ idea, onDelete, onUpdate }: IdeaCardProps) {
                 <span className={`h-1.5 w-1.5 rounded-full animate-pulse ${colors.dotBg}`} />
                 {idea.category}
               </span>
-
-              {/* Gemini AI Action Badges */}
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <button
-                  id={`btn-ai-enhance-${idea.id}`}
-                  onClick={() => handleAiAction('enhance')}
-                  disabled={isAiLoading}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-md transition-all duration-300 hover:scale-105 cursor-pointer bg-cyan-950/45 border-cyan-500/30 text-cyan-200 hover:border-cyan-400/60 hover:shadow-[0_0_10px_rgba(34,211,238,0.25)] disabled:opacity-50"
-                  title="Optimize with Gemini AI"
-                >
-                  {isAiLoading && aiType === 'enhance' ? (
-                    <RotateCw className="h-2.5 w-2.5 animate-spin text-cyan-400" />
-                  ) : (
-                    <Sparkles className="h-2.5 w-2.5 text-cyan-400" />
-                  )}
-                  Refine
-                </button>
-
-                <button
-                  id={`btn-ai-steps-${idea.id}`}
-                  onClick={() => handleAiAction('next-steps')}
-                  disabled={isAiLoading}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-md transition-all duration-300 hover:scale-105 cursor-pointer bg-emerald-950/45 border-emerald-500/30 text-emerald-200 hover:border-emerald-400/60 hover:shadow-[0_0_10px_rgba(16,185,129,0.25)] disabled:opacity-50"
-                  title="Generate Action Plan with Gemini AI"
-                >
-                  {isAiLoading && aiType === 'next-steps' ? (
-                    <RotateCw className="h-2.5 w-2.5 animate-spin text-emerald-400" />
-                  ) : (
-                    <ListTodo className="h-2.5 w-2.5 text-emerald-400" />
-                  )}
-                  Steps
-                </button>
-
-                <button
-                  id={`btn-ai-tech-${idea.id}`}
-                  onClick={() => handleAiAction('tech-stack')}
-                  disabled={isAiLoading}
-                  className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-medium border backdrop-blur-md transition-all duration-300 hover:scale-105 cursor-pointer bg-purple-950/45 border-purple-500/30 text-purple-200 hover:border-purple-400/60 hover:shadow-[0_0_10px_rgba(168,85,247,0.25)] disabled:opacity-50"
-                  title="Suggest Tech Stack with Gemini AI"
-                >
-                  {isAiLoading && aiType === 'tech-stack' ? (
-                    <RotateCw className="h-2.5 w-2.5 animate-spin text-purple-400" />
-                  ) : (
-                    <Code className="h-2.5 w-2.5 text-purple-400" />
-                  )}
-                  Stack
-                </button>
-              </div>
             </div>
-
-            {/* AI Result Section */}
-            {showAiSection && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                transition={{ duration: 0.3 }}
-                className="mt-4 rounded-xl border border-white/[0.06] bg-white/[0.02] backdrop-blur-sm p-3.5 text-xs relative overflow-hidden"
-              >
-                <div className="absolute top-2.5 right-2.5 flex items-center gap-1">
-                  <button
-                    onClick={() => setShowAiSection(false)}
-                    className="p-1 rounded text-white/40 hover:text-white/80 hover:bg-white/[0.06] transition-colors cursor-pointer"
-                    title="Close"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </div>
-
-                <div className="flex items-center gap-1.5 mb-3">
-                  {aiType === 'enhance' ? (
-                    <>
-                      <Sparkles className="h-3.5 w-3.5 text-cyan-400 animate-pulse" />
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-cyan-300">Gemini Refined Pitch</span>
-                    </>
-                  ) : aiType === 'next-steps' ? (
-                    <>
-                      <ListTodo className="h-3.5 w-3.5 text-emerald-400 animate-pulse" />
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-emerald-300">Suggested Action Plan</span>
-                    </>
-                  ) : (
-                    <>
-                      <Code className="h-3.5 w-3.5 text-purple-400 animate-pulse" />
-                      <span className="font-mono text-[9px] font-bold uppercase tracking-wider text-purple-300">Recommended Tech Stack</span>
-                    </>
-                  )}
-                </div>
-
-                {isAiLoading ? (
-                  <div className="flex items-center gap-2 text-white/50 py-2">
-                    <RotateCw className="h-3.5 w-3.5 animate-spin text-cyan-400" />
-                    <span className="font-light animate-pulse">Querying Gemini Brain...</span>
-                  </div>
-                ) : aiError ? (
-                  <p className="text-rose-400 py-1 text-[11px]">{aiError}</p>
-                ) : aiType === 'enhance' && enhancedResult ? (
-                  <div className="space-y-3">
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-cyan-400/70 font-semibold block mb-0.5">Optimized Title</span>
-                      <p className="text-white font-medium text-sm leading-snug">{enhancedResult.title}</p>
-                    </div>
-                    <div>
-                      <span className="text-[9px] font-mono uppercase text-cyan-400/70 font-semibold block mb-0.5">Optimized Description</span>
-                      <p className="text-white/80 font-light leading-relaxed whitespace-pre-line text-[11px]">{enhancedResult.description}</p>
-                    </div>
-                    <div className="pt-2 border-t border-white/[0.04] flex justify-end">
-                      <button
-                        onClick={handleApplyRefinement}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-semibold text-white bg-cyan-600 hover:bg-cyan-500 hover:shadow-[0_0_15px_rgba(6,182,212,0.4)] transition-all duration-300 active:scale-95 cursor-pointer"
-                      >
-                        <Check className="h-3 w-3" />
-                        Apply to Card
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <p className="text-white/80 font-light leading-relaxed whitespace-pre-line text-[11px]">
-                    {aiResult}
-                  </p>
-                )}
-              </motion.div>
-            )}
           </div>
 
           {/* Footer Dates */}

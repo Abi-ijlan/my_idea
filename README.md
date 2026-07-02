@@ -1,6 +1,6 @@
 # Idea Vault
 
-Idea Vault is a cloud-based idea manager for capturing, organizing, and refining product, startup, design, and technical ideas. It uses a React/Vite frontend, Supabase for required cloud persistence, and Gemini for optional AI-assisted idea refinement.
+Idea Vault is a cloud-based idea manager for capturing and organizing product, startup, design, and technical ideas. It uses a React/Vite frontend and Supabase for required cloud persistence.
 
 ## Features
 
@@ -10,10 +10,6 @@ Idea Vault is a cloud-based idea manager for capturing, organizing, and refining
 - Filter by category and sort by newest, oldest, or alphabetical order
 - Seed sample ideas for quick testing
 - Store ideas in Supabase with no browser local storage fallback
-- Use Gemini-powered actions on each idea:
-  - Refine the title and description
-  - Generate next steps
-  - Suggest a technical stack
 
 ## Tech Stack
 
@@ -24,7 +20,6 @@ Idea Vault is a cloud-based idea manager for capturing, organizing, and refining
 - Motion for UI animation
 - Lucide React for icons
 - Supabase for database persistence
-- Google Gemini API for AI features
 - Vercel API routes for production backend functions
 
 ## Project Structure
@@ -32,14 +27,12 @@ Idea Vault is a cloud-based idea manager for capturing, organizing, and refining
 ```text
 idea_vault/
   api/
-    _shared.ts              Shared Supabase and Gemini clients
     health.ts               API health check
-    gemini/enhance.ts       Gemini idea refinement endpoint
     ideas/index.ts          List, create, and clear ideas
     ideas/[id].ts           Update and delete one idea
   src/
     components/
-      IdeaCard.tsx          Idea display, editing, pinning, deleting, AI actions
+      IdeaCard.tsx          Idea display, editing, pinning, and deleting
       IdeaForm.tsx          New idea form
     lib/
       ideasApi.ts           Cloud-only client API wrapper
@@ -64,17 +57,12 @@ Create `.env.local` in the project root. Do not commit this file.
 ```env
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_ANON_KEY=your-supabase-anon-key
-GEMINI_API_KEY=your-gemini-api-key
 ```
 
 Required:
 
 - `SUPABASE_URL`: Supabase project URL
 - `SUPABASE_ANON_KEY`: Supabase anon public key
-
-Optional:
-
-- `GEMINI_API_KEY`: Required only for AI refinement, next steps, and tech stack actions
 
 ## Supabase Setup
 
@@ -176,7 +164,6 @@ The project is configured for Vercel.
 3. Add environment variables in Vercel Project Settings:
    - `SUPABASE_URL`
    - `SUPABASE_ANON_KEY`
-   - `GEMINI_API_KEY`, if AI features are needed
 4. Use:
    - Build command: `npm run build`
    - Output directory: `dist`
@@ -210,14 +197,6 @@ Deletes one idea.
 
 Deletes all ideas for the current user id.
 
-### `POST /api/gemini/enhance`
-
-Runs one Gemini action:
-
-- `enhance`
-- `next-steps`
-- `tech-stack`
-
 ## Troubleshooting
 
 ### Ideas are not appearing in Supabase
@@ -234,12 +213,6 @@ Runs one Gemini action:
 - Restart the local server after editing environment variables.
 - Confirm the `ideas` table exists.
 - Confirm the anon key belongs to the same project as the URL.
-
-### AI actions fail
-
-- Add `GEMINI_API_KEY` to `.env.local` or the deployed environment.
-- Restart the local server after changing `.env.local`.
-- Cloud storage can still work without Gemini.
 
 ### `/api/*` routes fail locally
 
@@ -263,5 +236,4 @@ The plain Vite dev server does not run the local Express API server.
 - No login or user accounts
 - All app users share the `local-user` record scope unless changed
 - No offline storage
-- AI features require a configured Gemini API key
 - Supabase table setup is manual
