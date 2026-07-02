@@ -3,25 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Search, Sparkles, RotateCcw, Trash2, AlertTriangle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Idea, IdeaCategory, CATEGORIES } from './types';
 import IdeaForm from './components/IdeaForm';
 import IdeaCard from './components/IdeaCard';
-import AuthScreen from './components/AuthScreen';
-import TelegramLinkPanel from './components/TelegramLinkPanel';
-import { db, auth, handleFirestoreError, OperationType } from './lib/firebase';
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  updateDoc, 
-  deleteDoc, 
-  query, 
-  where, 
-  onSnapshot 
-} from 'firebase/firestore';
+import { clearIdeas, createIdea, deleteIdea, loadIdeas, updateIdea } from './lib/ideasApi';
 
 const INITIAL_SAMPLE_IDEAS: Omit<Idea, 'id'>[] = [
   {
@@ -53,17 +41,23 @@ const INITIAL_SAMPLE_IDEAS: Omit<Idea, 'id'>[] = [
   }
 ];
 
+const LOCAL_USER_ID = 'local-user';
+
 export default function App() {
-  const [user, setUser] = useState<any>(null);
-  const [authLoading, setAuthLoading] = useState(true);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory | 'All'>('All');
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'alphabetical'>('latest');
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
 
-  // Helper to get isolated user-specific localStorage keys
-  const getStorageKey = (userId: string) => `idea_vault_items_${userId}`;
+  useEffect(() => {
+    const loadIdeasFromBackend = async () => {
+      const loadedIdeas = await loadIdeas(LOCAL_USER_ID);
+      setIdeas(loadedIdeas);
+    };
+
+    void loadIdeasFromBackend();
+  }, []);
 
   // Auto-reset confirmation button after 4 seconds
   useEffect(() => {
@@ -75,98 +69,8 @@ export default function App() {
     }
   }, [isConfirmingDeleteAll]);
 
-  // Monitor real Firebase auth state + fall back to mock session
-  useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((firebaseUser) => {
-      if (firebaseUser) {
-        setUser(firebaseUser);
-        setAuthLoading(false);
-      } else {
-        const activeSession = localStorage.getItem('vault_active_session');
-        if (activeSession === 'abi') {
-          setUser({ uid: 'abi', email: 'abi@ideavault.local' });
-        } else {
-          setUser(null);
-        }
-        setAuthLoading(false);
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  // Listen to Firestore ideas in real-time or load from offline cache
-  useEffect(() => {
-    if (!user) {
-      setIdeas([]);
-      return;
-    }
-
-    const userStorageKey = getStorageKey(user.uid);
-
-    // Initial cache-first load: fetch immediately from isolated localStorage
-    try {
-      const stored = localStorage.getItem(userStorageKey);
-      if (stored) {
-        setIdeas(JSON.parse(stored));
-      } else {
-        setIdeas([]);
-      }
-    } catch (e) {
-      console.error('Failed to load local ideas on auth change:', e);
-    }
-
-    // If local user 'abi', bypass Firestore entirely to prevent permission-denied errors
-    if (user.uid === 'abi') {
-      return;
-    }
-
-    const ideasCollection = collection(db, 'ideas');
-    const q = query(
-      ideasCollection,
-      where('userId', '==', user.uid)
-    );
-
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      const loadedIdeas: Idea[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        loadedIdeas.push({
-          id: doc.id,
-          title: data.title || '',
-          description: data.description || '',
-          category: data.category || 'Other',
-          color: data.color || 'cyan',
-          createdAt: data.createdAt || Date.now(),
-          updatedAt: data.updatedAt || Date.now(),
-          isPinned: !!data.isPinned,
-          userId: data.userId,
-        });
-      });
-      
-      setIdeas(loadedIdeas);
-      try {
-        localStorage.setItem(userStorageKey, JSON.stringify(loadedIdeas));
-      } catch (e) {
-        console.error('Failed to sync Firestore ideas to localStorage:', e);
-      }
-    }, (error) => {
-      console.error("Firestore load error:", error);
-      
-      // Strict permission check error handling
-      handleFirestoreError(error, OperationType.LIST, 'ideas');
-    });
-
-    return () => unsubscribe();
-  }, [user]);
-
-  const handleAddIdea = async (ideaData: { title: string; description: string; category: IdeaCategory }) => {
-    if (!user) return;
-    
-    // Generate an ID immediately for optimistic UI
-    const newId = `idea-${Math.random().toString(36).substring(2, 11)}`;
-    const newIdea: Idea = {
-      id: newId,
+const handleAddIdea = async (ideaData: { title: string; description: string; category: IdeaCategory }) => {
+    const newIdea = await createIdea({
       title: ideaData.title,
       description: ideaData.description,
       category: ideaData.category,
@@ -174,116 +78,30 @@ export default function App() {
       createdAt: Date.now(),
       updatedAt: Date.now(),
       isPinned: false,
-      userId: user.uid,
-    };
-
-    // Optimistically update local state & localStorage
-    setIdeas((prev) => {
-      const updated = [newIdea, ...prev];
-      try {
-        localStorage.setItem(getStorageKey(user.uid), JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
-      }
-      return updated;
+      userId: LOCAL_USER_ID,
     });
 
-    // If local user, skip cloud syncing
-    if (user.uid === 'abi') return;
-
-    try {
-      const ideasCollection = collection(db, 'ideas');
-      const newIdeaRef = doc(ideasCollection, newId);
-      await setDoc(newIdeaRef, {
-        title: newIdea.title,
-        description: newIdea.description,
-        category: newIdea.category,
-        color: newIdea.color,
-        createdAt: newIdea.createdAt,
-        updatedAt: newIdea.updatedAt,
-        isPinned: newIdea.isPinned,
-        userId: user.uid,
-      });
-    } catch (e) {
-      console.error('Failed to add idea to Firestore, saved locally:', e);
-      handleFirestoreError(e, OperationType.CREATE, `ideas/${newId}`);
-    }
+    setIdeas((prev) => [newIdea, ...prev]);
   };
 
   const handleUpdateIdea = async (id: string, updatedFields: Partial<Idea>) => {
-    if (!user) return;
+    const updatedIdea = await updateIdea(id, updatedFields, LOCAL_USER_ID);
+    if (!updatedIdea) return;
 
-    // Optimistically update local state & localStorage
-    setIdeas((prev) => {
-      const updated = prev.map((idea) => {
-        if (idea.id === id) {
-          return { ...idea, ...updatedFields, updatedAt: Date.now() };
-        }
-        return idea;
-      });
-      try {
-        localStorage.setItem(getStorageKey(user.uid), JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
-      }
-      return updated;
-    });
-
-    // If local user, skip cloud syncing
-    if (user.uid === 'abi') return;
-
-    try {
-      const docRef = doc(db, 'ideas', id);
-      const updateData: any = {};
-      if (updatedFields.title !== undefined) updateData.title = updatedFields.title;
-      if (updatedFields.description !== undefined) updateData.description = updatedFields.description;
-      if (updatedFields.category !== undefined) updateData.category = updatedFields.category;
-      if (updatedFields.color !== undefined) updateData.color = updatedFields.color;
-      if (updatedFields.isPinned !== undefined) updateData.isPinned = updatedFields.isPinned;
-      updateData.updatedAt = Date.now();
-
-      await updateDoc(docRef, updateData);
-    } catch (e) {
-      console.error('Failed to update idea in Firestore, updated locally:', e);
-      handleFirestoreError(e, OperationType.UPDATE, `ideas/${id}`);
-    }
+    setIdeas((prev) => prev.map((idea) => (idea.id === id ? updatedIdea : idea)));
   };
 
   const handleDeleteIdea = async (id: string) => {
-    if (!user) return;
-
-    // Optimistically update local state & localStorage
-    setIdeas((prev) => {
-      const updated = prev.filter((idea) => idea.id !== id);
-      try {
-        localStorage.setItem(getStorageKey(user.uid), JSON.stringify(updated));
-      } catch (e) {
-        console.error(e);
-      }
-      return updated;
-    });
-
-    // If local user, skip cloud syncing
-    if (user.uid === 'abi') return;
-
-    try {
-      const docRef = doc(db, 'ideas', id);
-      await deleteDoc(docRef);
-    } catch (e) {
-      console.error('Failed to delete idea from Firestore, deleted locally:', e);
-      handleFirestoreError(e, OperationType.DELETE, `ideas/${id}`);
-    }
+    await deleteIdea(id, LOCAL_USER_ID);
+    setIdeas((prev) => prev.filter((idea) => idea.id !== id));
   };
 
   const handleSeedSamples = async () => {
-    if (!user) return;
     try {
-      const seededIdeas: Idea[] = [];
+      const newIdeas: Idea[] = [];
 
       for (const sample of INITIAL_SAMPLE_IDEAS) {
-        const newId = `idea-${Math.random().toString(36).substring(2, 11)}`;
-        const newIdea: Idea = {
-          id: newId,
+        const newIdea = await createIdea({
           title: sample.title,
           description: sample.description,
           category: sample.category as IdeaCategory,
@@ -291,76 +109,20 @@ export default function App() {
           createdAt: Date.now(),
           updatedAt: Date.now(),
           isPinned: sample.isPinned,
-          userId: user.uid,
-        };
-        seededIdeas.push(newIdea);
-
-        // Only sync to Firestore if not mock local session
-        if (user.uid !== 'abi') {
-          const ideasCollection = collection(db, 'ideas');
-          setDoc(doc(ideasCollection, newId), {
-            title: newIdea.title,
-            description: newIdea.description,
-            category: newIdea.category,
-            color: newIdea.color,
-            createdAt: newIdea.createdAt,
-            updatedAt: newIdea.updatedAt,
-            isPinned: newIdea.isPinned,
-            userId: user.uid,
-          }).catch((e) => {
-            console.error("Background seed write failed:", e);
-            handleFirestoreError(e, OperationType.CREATE, `ideas/${newId}`);
-          });
-        }
+          userId: LOCAL_USER_ID,
+        });
+        newIdeas.push(newIdea);
       }
 
-      setIdeas((prev) => {
-        const updated = [...seededIdeas, ...prev];
-        try {
-          localStorage.setItem(getStorageKey(user.uid), JSON.stringify(updated));
-        } catch (e) {
-          console.error(e);
-        }
-        return updated;
-      });
+      setIdeas((prev) => [...newIdeas, ...prev]);
     } catch (e) {
       console.error('Failed to seed sample ideas:', e);
     }
   };
 
   const handleDeleteAllIdeas = async () => {
-    if (!user) return;
-    
-    // Capture the ideas we are about to delete
-    const ideasToDelete = [...ideas];
-
-    // Optimistically clear local state & localStorage
+    await clearIdeas(LOCAL_USER_ID);
     setIdeas([]);
-    try {
-      localStorage.removeItem(getStorageKey(user.uid));
-    } catch (e) {
-      console.error('Failed to remove storage from localStorage:', e);
-    }
-
-    // If local user, do not delete from cloud
-    if (user.uid === 'abi') {
-      setIsConfirmingDeleteAll(false);
-      return;
-    }
-
-    // Delete each idea from Firestore
-    try {
-      const deletePromises = ideasToDelete.map((idea) => {
-        const docRef = doc(db, 'ideas', idea.id);
-        return deleteDoc(docRef).catch((e) => {
-          handleFirestoreError(e, OperationType.DELETE, `ideas/${idea.id}`);
-        });
-      });
-      await Promise.all(deletePromises);
-    } catch (e) {
-      console.error('Failed to delete ideas from Firestore:', e);
-    }
-
     setIsConfirmingDeleteAll(false);
   };
 
@@ -389,30 +151,6 @@ export default function App() {
 
     return filtered;
   }, [ideas, searchQuery, selectedCategory, sortBy]);
-
-  if (authLoading) {
-    return (
-      <div className="min-h-screen premium-bg text-gray-200 flex items-center justify-center font-sans">
-        <div className="flex flex-col items-center gap-4">
-          <div className="h-10 w-10 border-4 border-cyan-500/30 border-t-cyan-400 rounded-full animate-spin shadow-[0_0_15px_rgba(6,182,212,0.25)]" />
-          <p className="text-sm font-mono text-cyan-300 animate-pulse">Initializing Vault...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const handleAuthSuccess = () => {
-    const activeSession = localStorage.getItem('vault_active_session');
-    if (activeSession === 'abi') {
-      setUser({ uid: 'abi', email: 'abi@ideavault.local' });
-    } else if (auth.currentUser) {
-      setUser(auth.currentUser);
-    }
-  };
-
-  if (!user) {
-    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
-  }
 
   return (
     <div className="min-h-screen premium-bg text-gray-200 font-sans antialiased selection:bg-cyan-500/20 selection:text-cyan-200 relative overflow-hidden pb-12">
@@ -460,29 +198,17 @@ export default function App() {
               </p>
             </motion.div>
 
-            {user && (
-              <motion.div 
-                initial={{ opacity: 0, x: 30 }}
-                animate={{ opacity: 1, x: 0 }}
-                transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-                className="flex items-center gap-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] backdrop-blur-xl px-4.5 py-3 rounded-2xl transition-all duration-300 shadow-[inset_0_0_20px_rgba(255,255,255,0.01)]"
-              >
-                <div className="flex flex-col text-right">
-                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Secure Cloud Vault</span>
-                  <span className="text-xs text-cyan-300 font-semibold font-mono truncate max-w-[185px]">{user.email ? user.email.split('@')[0] : 'User'}</span>
-                </div>
-                <button
-                  onClick={async () => {
-                    localStorage.removeItem('vault_active_session');
-                    await auth.signOut();
-                    setUser(null);
-                  }}
-                  className="px-4 py-2 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/25 text-rose-300 hover:text-rose-200 text-xs font-bold cursor-pointer transition-all duration-300 shadow-[0_0_15px_rgba(244,63,94,0.06)] hover:shadow-[0_0_25px_rgba(244,63,94,0.18)] active:scale-[0.97]"
-                >
-                  Log Out
-                </button>
-              </motion.div>
-            )}
+            <motion.div 
+              initial={{ opacity: 0, x: 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
+              className="flex items-center gap-4 bg-white/[0.02] hover:bg-white/[0.04] border border-white/[0.08] hover:border-white/[0.12] backdrop-blur-xl px-4.5 py-3 rounded-2xl transition-all duration-300 shadow-[inset_0_0_20px_rgba(255,255,255,0.01)]"
+            >
+              <div className="flex flex-col text-right">
+                <span className="text-[10px] font-extrabold uppercase tracking-widest text-slate-500">Local-only mode</span>
+                <span className="text-xs text-cyan-300 font-semibold font-mono truncate max-w-[185px]">Ideas stay in this browser</span>
+              </div>
+            </motion.div>
           </header>
 
           {/* Premium Neon Divider */}
@@ -493,10 +219,6 @@ export default function App() {
             <IdeaForm onSave={handleAddIdea} />
           </section>
 
-          {/* Telegram Companion Chatbot */}
-          <section id="telegram-companion" className="pt-2">
-            <TelegramLinkPanel userId={user.uid} />
-          </section>
         </div>
 
         {/* Controls */}
