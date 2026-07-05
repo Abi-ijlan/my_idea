@@ -9,7 +9,11 @@ Idea Vault is a cloud-based idea manager for capturing and organizing product, s
 - Search ideas by title or description
 - Filter by category and sort by newest, oldest, or alphabetical order
 - Seed sample ideas for quick testing
-- Store ideas in Supabase with no browser local storage fallback
+- Store ideas in Supabase with automatic read caching in browser `localStorage` for offline support
+- **Progressive Web App (PWA)**: Fully installable app on iOS/Android/Tablets with custom neon launcher icons and standalone viewport mode
+- **Persistent Session**: Auto-persisted login states and offline user profile caching to prevent unexpected sign-in prompts when opening the app
+- **Offline Safeguards**: Informative orange Offline Mode banner with read-only dashboard browsing and disabled write inputs to prevent data desynchronization
+
 
 ## Tech Stack
 
@@ -44,11 +48,14 @@ idea_vault/
   vercel.json               Vercel deployment config
 ```
 
-## Cloud-Only Persistence
+## Cloud Persistence & Offline Cache
 
-Supabase is required. The app does not save ideas to `localStorage`.
+Supabase is required for persistent database storage. 
 
-If Supabase is missing or unavailable, the UI shows a cloud storage error and write operations fail instead of silently saving in the browser. This keeps Chrome, Edge, deployed builds, and other clients pointed at the same cloud source of truth.
+To provide a resilient, app-like experience on mobile devices, the app utilizes a hybrid caching model:
+- **Offline Reads**: Loaded ideas are cached in `localStorage` per user. If the device is offline or the Supabase API is unreachable, the app displays the cached ideas in read-only mode.
+- **Offline Safeguards**: Write operations (adding, updating, pinning, deleting) are disabled when offline to preserve the cloud database as the single source of truth.
+- **Persistent Sessions**: The Supabase client is configured for auto-refreshing sessions. The last active user profile is cached locally; if reopening the app offline, the user is not kicked to the login page but kept in an offline workspace.
 
 ## Environment Variables
 

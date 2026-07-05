@@ -24,7 +24,11 @@ idea_vault/
 │   ├── index.css            # Tailwind CSS configuration & custom styles
 │   ├── main.tsx             # React entry point
 │   └── types.ts             # TypeScript interfaces & types
-├── public/                  # Static assets
+├── public/                  # Static PWA assets
+│   ├── manifest.json        # Web App Manifest for mobile installation
+│   ├── sw.js                # Network-first/Cache-fallback Service Worker
+│   ├── icon-192.png         # 192px app launcher icon
+│   └── icon-512.png         # 512px app launcher icon
 ├── .env.local               # Environment variables (local development)
 ├── .env.example             # Template for environment variables
 ├── server.ts                # Local development server (Express + Vite)
@@ -210,10 +214,10 @@ npm run preview
 
 ## Key Implementation Details
 
-### Authentication
-- Uses Supabase Auth (email/password or OAuth providers)
-- Auth state managed via `supabase.auth.getSession()` and `onAuthStateChange`
-- User ID from auth used to scope all data operations
+### Authentication & PWA Session Persistence
+- Uses Supabase Auth (email/password or OAuth providers).
+- Configured explicitly to use `window.localStorage` to persist session tokens.
+- **Offline Profile Fallback**: Caches user profile (email and user ID) in `localStorage` under `idea_vault_offline_user` on successful login. If reopening the app offline (when token refresh is impossible), the app bypasses the login screen by loading this cached profile to allow read-only offline access.
 
 ### Data Modeling
 - **Idea Interface** (src/types.ts):
@@ -236,11 +240,11 @@ npm run preview
 - UI displays error messages via `cloudError` state in `App.tsx`
 - Network failures handled gracefully with user-friendly messages
 
-### Performance Considerations
-- **Pagination**: Not implemented for MVP (assumes reasonable number of ideas per user)
-- **Optimistic Updates**: UI updates immediately, then reconciles with server response
-- **Caching**: Relies on React Query-like patterns in custom hooks (could be enhanced)
-- **Bundle Size**: Monitored via build output warnings
+### Performance Considerations & PWA Caching
+- **Service Worker (`public/sw.js`)**: Caches static assets (`/index.html`, `/manifest.json`, JS, CSS, icons) using a network-first strategy, allowing instant load times on subsequent opens.
+- **Offline Reads Caching**: Loaded ideas are cached in `localStorage` under `ideas_${userId}`. When offline, this cache is read directly to render the workspace.
+- **Disabled Offline Writes**: Operations that mutate states (creation, deletion, edits, pinning) are blocked in the UI when offline to prevent desynchronization.
+- **Bundle Size**: Minimized and optimized via Vite/Rollup production build.
 
 ## Contributing Guidelines
 
