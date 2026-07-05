@@ -46,6 +46,8 @@ const INITIAL_SAMPLE_IDEAS: Omit<Idea, 'id'>[] = [
 export default function App() {
   const [session, setSession] = useState<any>(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [offlineUser, setOfflineUser] = useState<{ id: string; email: string } | null>(null);
+  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory | 'All'>('All');
@@ -53,36 +55,97 @@ export default function App() {
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
 
-  const userId = session?.user?.id || 'local-user';
+  const userId = session?.user?.id || offlineUser?.id || 'local-user';
+  const userEmail = session?.user?.email || offlineUser?.email || '';
+  const isAuthenticated = !!session || (!!offlineUser && isOffline);
+
+  // Load cached offline user on mount and register online/offline listeners
+  useEffect(() => {
+    const cachedUser = localStorage.getItem('idea_vault_offline_user');
+    if (cachedUser) {
+      try {
+        setOfflineUser(JSON.parse(cachedUser));
+      } catch (e) {
+        console.error('Failed to parse offline user:', e);
+      }
+    }
+
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session: s } }) => {
       setSession(s);
+      if (s?.user) {
+        const u = { id: s.user.id, email: s.user.email || '' };
+        setOfflineUser(u);
+        localStorage.setItem('idea_vault_offline_user', JSON.stringify(u));
+      }
       setAuthLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
       setSession(s);
+      if (s?.user) {
+        const u = { id: s.user.id, email: s.user.email || '' };
+        setOfflineUser(u);
+        localStorage.setItem('idea_vault_offline_user', JSON.stringify(u));
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
-    if (!authLoading && session) {
+    if (!authLoading && isAuthenticated) {
       const loadIdeasFromBackend = async () => {
         try {
+          if (isOffline) {
+            const cached = localStorage.getItem(`ideas_${userId}`);
+            if (cached) {
+              setIdeas(JSON.parse(cached));
+              setCloudError('Running in offline mode. Reading from local cache.');
+            } else {
+              setIdeas([]);
+              setCloudError('Offline mode active. No cached ideas found for this user.');
+            }
+            return;
+          }
+
           const loadedIdeas = await loadIdeas(userId);
           setIdeas(loadedIdeas);
+          localStorage.setItem(`ideas_${userId}`, JSON.stringify(loadedIdeas));
           setCloudError(null);
         } catch (error: any) {
-          setCloudError(error.message || 'Unable to connect to cloud storage.');
+          const cached = localStorage.getItem(`ideas_${userId}`);
+          if (cached) {
+            setIdeas(JSON.parse(cached));
+            setCloudError('Unable to connect to cloud storage. Loading cached ideas.');
+          } else {
+            setCloudError(error.message || 'Unable to connect to cloud storage.');
+          }
         }
       };
 
       void loadIdeasFromBackend();
     }
-  }, [authLoading, session, userId]);
+  }, [authLoading, isAuthenticated, userId, isOffline]);
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    localStorage.removeItem('idea_vault_offline_user');
+    setOfflineUser(null);
+    setIdeas([]);
+  };
 
   // Auto-reset confirmation button after 4 seconds
   useEffect(() => {
@@ -206,7 +269,7 @@ export default function App() {
     );
   }
 
-  if (!session) {
+  if (!isAuthenticated) {
     return <LoginPage />;
   }
 
@@ -241,25 +304,35 @@ export default function App() {
               initial={{ opacity: 0, x: -30 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-              className="space-y-2"
+              className="space-y-2 w-full"
             >
-              <div className="flex items-center gap-3">
-                <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.35)]">
-                  <Sparkles className="h-6 w-6 animate-pulse text-cyan-300" />
+              <div className="flex items-center justify-between gap-3 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center justify-center h-12 w-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/30 text-cyan-400 shadow-[0_0_25px_rgba(6,182,212,0.35)]">
+                    <Sparkles className="h-6 w-6 animate-pulse text-cyan-300" />
+                  </div>
+                  <h1 className="font-display text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                    Idea Vault
+                  </h1>
                 </div>
-                <h1 className="font-display text-4xl md:text-5xl font-extrabold tracking-tight bg-gradient-to-r from-cyan-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
-                  Idea Vault
-                </h1>
+
+                {isOffline && (
+                  <span className="text-[10px] font-mono font-bold text-amber-300 bg-amber-500/10 border border-amber-500/30 px-3 py-1 rounded-full animate-pulse shadow-[0_0_15px_rgba(245,158,11,0.2)]">
+                    OFFLINE MODE
+                  </span>
+                )}
               </div>
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 flex-wrap">
                 <p className="text-white/60 text-sm font-light max-w-md leading-relaxed">
                   Capture and organize your thoughts.
                 </p>
-                <span className="text-[11px] font-mono text-cyan-400/60 bg-cyan-500/8 px-3 py-1 rounded-full border border-cyan-500/15">
-                  {session?.user?.email}
-                </span>
+                {userEmail && (
+                  <span className="text-[11px] font-mono text-cyan-400/60 bg-cyan-500/8 px-3 py-1 rounded-full border border-cyan-500/15">
+                    {userEmail}
+                  </span>
+                )}
                 <motion.button
-                  onClick={async () => { await supabase.auth.signOut(); }}
+                  onClick={handleLogout}
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
                   className="flex items-center gap-1.5 text-[11px] font-mono text-white/40 hover:text-rose-300 transition-all duration-300 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 ml-auto"
@@ -277,18 +350,18 @@ export default function App() {
           <div className="neon-divider animate-pulse" style={{ animationDuration: '4s' }} />
 
           {cloudError && (
-            <div className="flex items-start gap-3 rounded-2xl border border-rose-500/25 bg-rose-500/8 px-4 py-3 text-xs text-rose-200">
-              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-rose-300" />
+            <div className={`flex items-start gap-3 rounded-2xl border px-4 py-3 text-xs ${isOffline ? 'border-amber-500/25 bg-amber-500/8 text-amber-200' : 'border-rose-500/25 bg-rose-500/8 text-rose-200'}`}>
+              <AlertTriangle className={`mt-0.5 h-4 w-4 shrink-0 ${isOffline ? 'text-amber-300' : 'text-rose-300'}`} />
               <div>
-                <p className="font-semibold">Cloud storage is unavailable.</p>
-                <p className="mt-1 text-rose-100/75">{cloudError}</p>
+                <p className="font-semibold">{isOffline ? 'Offline Mode Active' : 'Cloud storage error.'}</p>
+                <p className="mt-1 opacity-75">{cloudError}</p>
               </div>
             </div>
           )}
 
           {/* Input Section */}
           <section id="vault-creator">
-            <IdeaForm onSave={handleAddIdea} />
+            <IdeaForm onSave={handleAddIdea} disabled={isOffline} />
           </section>
 
         </div>
@@ -397,6 +470,7 @@ export default function App() {
                       idea={idea}
                       onDelete={handleDeleteIdea}
                       onUpdate={handleUpdateIdea}
+                      disabled={isOffline}
                     />
                   </motion.div>
                 ))}
@@ -455,7 +529,7 @@ export default function App() {
           
           <div className="flex items-center gap-3">
             <motion.button
-              onClick={async () => { await supabase.auth.signOut(); }}
+              onClick={handleLogout}
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               className="flex items-center gap-2 text-[11px] font-mono text-white/40 hover:text-rose-300 transition-all duration-300 cursor-pointer px-3 py-2 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25"
@@ -475,10 +549,12 @@ export default function App() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
-                  onClick={() => setIsConfirmingDeleteAll(true)}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 text-[11px] font-mono text-rose-300 hover:text-rose-100 transition-all duration-300 cursor-pointer px-4 py-2 rounded-xl bg-rose-500/8 hover:bg-rose-500/15 border border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)] hover:shadow-[0_0_20px_rgba(244,63,94,0.15)]"
+                  onClick={() => !isOffline && setIsConfirmingDeleteAll(true)}
+                  disabled={isOffline}
+                  whileHover={isOffline ? {} : { scale: 1.05 }}
+                  whileTap={isOffline ? {} : { scale: 0.95 }}
+                  className="flex items-center gap-2 text-[11px] font-mono text-rose-300 hover:text-rose-100 transition-all duration-300 cursor-pointer px-4 py-2 rounded-xl bg-rose-500/8 hover:bg-rose-500/15 border border-rose-500/20 shadow-[0_0_15px_rgba(244,63,94,0.05)] hover:shadow-[0_0_20px_rgba(244,63,94,0.15)] disabled:opacity-40 disabled:cursor-not-allowed"
+                  title={isOffline ? 'Offline - Deleting all disabled' : 'Delete All Ideas'}
                 >
                   <Trash2 className="h-3.5 w-3.5 text-rose-400" />
                   Delete All Ideas
@@ -491,9 +567,10 @@ export default function App() {
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.95 }}
                   onClick={handleDeleteAllIdeas}
-                  whileHover={{ scale: 1.05 }}
-                  whileTap={{ scale: 0.95 }}
-                  className="flex items-center gap-2 text-[11px] font-mono text-red-200 hover:text-white transition-all duration-300 cursor-pointer px-4 py-2 rounded-xl bg-red-600/30 hover:bg-red-600/40 border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse"
+                  disabled={isOffline}
+                  whileHover={isOffline ? {} : { scale: 1.05 }}
+                  whileTap={isOffline ? {} : { scale: 0.95 }}
+                  className="flex items-center gap-2 text-[11px] font-mono text-red-200 hover:text-white transition-all duration-300 cursor-pointer px-4 py-2 rounded-xl bg-red-600/30 hover:bg-red-600/40 border border-red-500/50 shadow-[0_0_20px_rgba(239,68,68,0.3)] animate-pulse disabled:opacity-40 disabled:cursor-not-allowed"
                 >
                   <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
                   Click to Confirm Delete All

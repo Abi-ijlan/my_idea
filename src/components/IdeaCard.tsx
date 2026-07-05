@@ -12,6 +12,7 @@ interface IdeaCardProps {
   idea: Idea;
   onDelete: (id: string) => void;
   onUpdate: (id: string, updatedFields: Partial<Idea>) => void;
+  disabled?: boolean;
 }
 
 const CATEGORY_COLORS: Record<IdeaCategory, {
@@ -142,7 +143,7 @@ const CATEGORY_COLORS: Record<IdeaCategory, {
   },
 };
 
-export default function IdeaCard({ idea, onDelete, onUpdate }: IdeaCardProps) {
+export default function IdeaCard({ idea, onDelete, onUpdate, disabled = false }: IdeaCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editTitle, setEditTitle] = useState(idea.title || '');
   const [editDescription, setEditDescription] = useState(idea.description || '');
@@ -293,31 +294,34 @@ export default function IdeaCard({ idea, onDelete, onUpdate }: IdeaCardProps) {
               <div className="flex items-center gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
                 <button
                   id={`btn-pin-${idea.id}`}
-                  onClick={() => onUpdate(idea.id, { isPinned: !idea.isPinned })}
-                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${
+                  onClick={() => !disabled && onUpdate(idea.id, { isPinned: !idea.isPinned })}
+                  disabled={disabled}
+                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${
                     idea.isPinned
                       ? colors.actionButtonActive
                       : colors.actionButtonHover
                   }`}
-                  title={idea.isPinned ? 'Unpin' : 'Pin'}
+                  title={disabled ? 'Offline - Pinning disabled' : (idea.isPinned ? 'Unpin' : 'Pin')}
                 >
                   <Pin className={`h-4 w-4 md:h-3.5 md:w-3.5 ${idea.isPinned ? 'fill-current' : ''}`} />
                 </button>
 
                 <button
                   id={`btn-edit-${idea.id}`}
-                  onClick={() => setIsEditing(true)}
-                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 ${colors.actionButtonHover}`}
-                  title="Edit"
+                  onClick={() => !disabled && setIsEditing(true)}
+                  disabled={disabled}
+                  className={`h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 ${colors.actionButtonHover}`}
+                  title={disabled ? 'Offline - Editing disabled' : 'Edit'}
                 >
                   <Edit2 className="h-4 w-4 md:h-3.5 md:w-3.5" />
                 </button>
 
                 <button
                   id={`btn-delete-${idea.id}`}
-                  onClick={() => onDelete(idea.id)}
-                  className="h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 hover:shadow-[0_0_12px_rgba(244,63,94,0.2)] hover:-translate-y-0.5"
-                  title="Delete"
+                  onClick={() => !disabled && onDelete(idea.id)}
+                  disabled={disabled}
+                  className="h-9 w-9 md:h-7 md:w-7 rounded-lg flex items-center justify-center transition-all duration-300 backdrop-blur-md border cursor-pointer bg-white/[0.03] border-white/[0.08] text-white/50 hover:bg-rose-500/10 hover:border-rose-500/30 hover:text-rose-400 hover:shadow-[0_0_12px_rgba(244,63,94,0.2)] hover:-translate-y-0.5 disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:translate-y-0 disabled:hover:bg-white/[0.03] disabled:hover:border-white/[0.08] disabled:hover:text-white/50 disabled:hover:shadow-none"
+                  title={disabled ? 'Offline - Deleting disabled' : 'Delete'}
                 >
                   <Trash2 className="h-4 w-4 md:h-3.5 md:w-3.5" />
                 </button>
