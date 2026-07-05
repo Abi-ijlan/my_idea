@@ -4,12 +4,14 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Sparkles, Trash2, AlertTriangle } from 'lucide-react';
+import { Search, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Idea, IdeaCategory, CATEGORIES } from './types';
 import IdeaForm from './components/IdeaForm';
 import IdeaCard from './components/IdeaCard';
+import LoginPage from './components/LoginPage';
 import { clearIdeas, createIdea, deleteIdea, loadIdeas, updateIdea } from './lib/ideasApi';
+import { supabase } from './lib/supabase';
 
 const INITIAL_SAMPLE_IDEAS: Omit<Idea, 'id'>[] = [
   {
@@ -41,9 +43,9 @@ const INITIAL_SAMPLE_IDEAS: Omit<Idea, 'id'>[] = [
   }
 ];
 
-const LOCAL_USER_ID = 'local-user';
-
 export default function App() {
+  const [session, setSession] = useState<any>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<IdeaCategory | 'All'>('All');
@@ -51,19 +53,36 @@ export default function App() {
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
 
-  useEffect(() => {
-    const loadIdeasFromBackend = async () => {
-      try {
-        const loadedIdeas = await loadIdeas(LOCAL_USER_ID);
-        setIdeas(loadedIdeas);
-        setCloudError(null);
-      } catch (error: any) {
-        setCloudError(error.message || 'Unable to connect to cloud storage.');
-      }
-    };
+  const userId = session?.user?.id || 'local-user';
 
-    void loadIdeasFromBackend();
+  useEffect(() => {
+    supabase.auth.getSession().then(({ data: { session: s } }) => {
+      setSession(s);
+      setAuthLoading(false);
+    });
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => {
+      setSession(s);
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
+
+  useEffect(() => {
+    if (!authLoading && session) {
+      const loadIdeasFromBackend = async () => {
+        try {
+          const loadedIdeas = await loadIdeas(userId);
+          setIdeas(loadedIdeas);
+          setCloudError(null);
+        } catch (error: any) {
+          setCloudError(error.message || 'Unable to connect to cloud storage.');
+        }
+      };
+
+      void loadIdeasFromBackend();
+    }
+  }, [authLoading, session, userId]);
 
   // Auto-reset confirmation button after 4 seconds
   useEffect(() => {
@@ -85,7 +104,7 @@ export default function App() {
         createdAt: Date.now(),
         updatedAt: Date.now(),
         isPinned: false,
-        userId: LOCAL_USER_ID,
+        userId: userId,
       });
 
       setIdeas((prev) => [newIdea, ...prev]);
@@ -99,7 +118,7 @@ export default function App() {
 
   const handleUpdateIdea = async (id: string, updatedFields: Partial<Idea>) => {
     try {
-      const updatedIdea = await updateIdea(id, updatedFields, LOCAL_USER_ID);
+      const updatedIdea = await updateIdea(id, updatedFields, userId);
       setIdeas((prev) => prev.map((idea) => (idea.id === id ? updatedIdea : idea)));
       setCloudError(null);
     } catch (error: any) {
@@ -109,7 +128,7 @@ export default function App() {
 
   const handleDeleteIdea = async (id: string) => {
     try {
-      await deleteIdea(id, LOCAL_USER_ID);
+      await deleteIdea(id, userId);
       setIdeas((prev) => prev.filter((idea) => idea.id !== id));
       setCloudError(null);
     } catch (error: any) {
@@ -130,7 +149,7 @@ export default function App() {
           createdAt: Date.now(),
           updatedAt: Date.now(),
           isPinned: sample.isPinned,
-          userId: LOCAL_USER_ID,
+          userId: userId,
         });
         newIdeas.push(newIdea);
       }
@@ -144,7 +163,7 @@ export default function App() {
 
   const handleDeleteAllIdeas = async () => {
     try {
-      await clearIdeas(LOCAL_USER_ID);
+      await clearIdeas(userId);
       setIdeas([]);
       setIsConfirmingDeleteAll(false);
       setCloudError(null);
@@ -178,6 +197,18 @@ export default function App() {
 
     return filtered;
   }, [ideas, searchQuery, selectedCategory, sortBy]);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen premium-bg flex items-center justify-center">
+        <div className="h-8 w-8 rounded-full border-2 border-cyan-400/30 border-t-cyan-300 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!session) {
+    return <LoginPage />;
+  }
 
   return (
     <div className="min-h-screen premium-bg text-gray-200 font-sans antialiased selection:bg-cyan-500/20 selection:text-cyan-200 relative overflow-hidden pb-12">
@@ -220,9 +251,14 @@ export default function App() {
                   Idea Vault
                 </h1>
               </div>
-              <p className="text-white/60 text-sm font-light max-w-md leading-relaxed">
-                Capture and organize your thoughts.
-              </p>
+              <div className="flex items-center gap-3">
+                <p className="text-white/60 text-sm font-light max-w-md leading-relaxed">
+                  Capture and organize your thoughts.
+                </p>
+                <span className="text-[11px] font-mono text-cyan-400/60 bg-cyan-500/8 px-3 py-1 rounded-full border border-cyan-500/15 ml-auto">
+                  {session?.user?.email}
+                </span>
+              </div>
             </motion.div>
 
           </header>
@@ -408,6 +444,13 @@ export default function App() {
           <p>Idea Vault - Secure Cloud Persistence</p>
           
           <div className="flex items-center gap-3">
+            <button
+              onClick={async () => { await supabase.auth.signOut(); }}
+              className="flex items-center gap-2 text-[11px] font-mono text-white/30 hover:text-cyan-400 transition-all duration-300 cursor-pointer px-3 py-2 rounded-xl hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20"
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Sign Out
+            </button>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
