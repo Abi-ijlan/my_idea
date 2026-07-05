@@ -255,9 +255,19 @@ export default function App() {
                 <p className="text-white/60 text-sm font-light max-w-md leading-relaxed">
                   Capture and organize your thoughts.
                 </p>
-                <span className="text-[11px] font-mono text-cyan-400/60 bg-cyan-500/8 px-3 py-1 rounded-full border border-cyan-500/15 ml-auto">
+                <span className="text-[11px] font-mono text-cyan-400/60 bg-cyan-500/8 px-3 py-1 rounded-full border border-cyan-500/15">
                   {session?.user?.email}
                 </span>
+                <motion.button
+                  onClick={async () => { await supabase.auth.signOut(); }}
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.95 }}
+                  className="flex items-center gap-1.5 text-[11px] font-mono text-white/40 hover:text-rose-300 transition-all duration-300 cursor-pointer px-3 py-1.5 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25 ml-auto"
+                  title="Sign out"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  Logout
+                </motion.button>
               </div>
             </motion.div>
 
@@ -444,13 +454,15 @@ export default function App() {
           <p>Idea Vault - Secure Cloud Persistence</p>
           
           <div className="flex items-center gap-3">
-            <button
+            <motion.button
               onClick={async () => { await supabase.auth.signOut(); }}
-              className="flex items-center gap-2 text-[11px] font-mono text-white/30 hover:text-cyan-400 transition-all duration-300 cursor-pointer px-3 py-2 rounded-xl hover:bg-cyan-500/10 border border-transparent hover:border-cyan-500/20"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              className="flex items-center gap-2 text-[11px] font-mono text-white/40 hover:text-rose-300 transition-all duration-300 cursor-pointer px-3 py-2 rounded-xl hover:bg-rose-500/10 border border-transparent hover:border-rose-500/25"
             >
               <LogOut className="h-3.5 w-3.5" />
-              Sign Out
-            </button>
+              Logout
+            </motion.button>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-cyan-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-cyan-500"></span>
