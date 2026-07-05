@@ -4,7 +4,7 @@
  */
 
 import { useEffect, useMemo, useState } from 'react';
-import { Search, Sparkles, Trash2, AlertTriangle, LogOut } from 'lucide-react';
+import { Search, Sparkles, Trash2, AlertTriangle, LogOut, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Idea, IdeaCategory, CATEGORIES } from './types';
 import IdeaForm from './components/IdeaForm';
@@ -54,6 +54,50 @@ export default function App() {
   const [sortBy, setSortBy] = useState<'latest' | 'oldest' | 'alphabetical'>('latest');
   const [isConfirmingDeleteAll, setIsConfirmingDeleteAll] = useState(false);
   const [cloudError, setCloudError] = useState<string | null>(null);
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
+  const [showInstallBanner, setShowInstallBanner] = useState(false);
+  const [isIOS, setIsIOS] = useState(false);
+  const [showIOSInstructions, setShowIOSInstructions] = useState(false);
+
+  // Listen for beforeinstallprompt event and detect iOS
+  useEffect(() => {
+    const userAgent = window.navigator.userAgent.toLowerCase();
+    const ios = /iphone|ipad|ipod/.test(userAgent);
+    setIsIOS(ios);
+
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches;
+
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      if (!isStandalone) {
+        setShowInstallBanner(true);
+      }
+    };
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+
+    if (ios && !isStandalone) {
+      setShowInstallBanner(true);
+    }
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
+    };
+  }, []);
+
+  const handleInstallClick = async () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      console.log(`User response to the install prompt: ${outcome}`);
+      setDeferredPrompt(null);
+      setShowInstallBanner(false);
+    } else if (isIOS) {
+      setShowIOSInstructions(true);
+    }
+  };
+
 
   const userId = session?.user?.id || offlineUser?.id || 'local-user';
   const userEmail = session?.user?.email || offlineUser?.email || '';
@@ -580,6 +624,87 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* PWA Custom Install Banner */}
+      <AnimatePresence>
+        {showInstallBanner && (
+          <motion.div
+            initial={{ opacity: 0, y: 50 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 50 }}
+            className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 w-full max-w-sm px-4"
+          >
+            <div className="glass-panel border-cyan-500/30 rounded-2xl p-4 flex items-center justify-between gap-4 shadow-[0_10px_30px_rgba(6,182,212,0.15)] bg-slate-950/90 backdrop-blur-md">
+              <div className="flex items-center gap-3">
+                <div className="h-9 w-9 rounded-xl bg-cyan-500/10 flex items-center justify-center border border-cyan-500/20 text-cyan-400">
+                  <Sparkles className="h-5 w-5 text-cyan-300" />
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-white">Add to Home Screen</h4>
+                  <p className="text-[10px] text-white/50">Run Idea Vault as a standalone app.</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setShowInstallBanner(false)}
+                  className="p-1 text-white/30 hover:text-white/60 transition-colors cursor-pointer"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+                <button
+                  onClick={handleInstallClick}
+                  className="px-3.5 py-1.5 rounded-xl bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all duration-300 whitespace-nowrap cursor-pointer"
+                >
+                  {isIOS ? 'Instructions' : 'Install'}
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* iOS Instructions Modal */}
+      <AnimatePresence>
+        {showIOSInstructions && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-panel border-cyan-500/30 rounded-3xl p-6 w-full max-w-sm space-y-4 shadow-[0_15px_45px_rgba(0,0,0,0.5)]"
+            >
+              <div className="flex items-center justify-between">
+                <h3 className="font-display text-base font-bold text-white">Add to Home Screen</h3>
+                <button
+                  onClick={() => setShowIOSInstructions(false)}
+                  className="h-6 w-6 rounded-lg flex items-center justify-center bg-white/[0.03] border border-white/[0.08] text-white/50 hover:bg-white/[0.08] hover:text-white cursor-pointer"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+              <div className="neon-divider animate-pulse" />
+              <div className="space-y-3 text-xs text-white/70 font-light leading-relaxed">
+                <p>Follow these quick steps in Safari to install **Idea Vault** on your device:</p>
+                <ol className="list-decimal list-inside space-y-2 text-white/80">
+                  <li>Tap the <span className="font-semibold text-cyan-300">Share button</span> (square with upward arrow) at the bottom toolbar.</li>
+                  <li>Scroll down the share list and select <span className="font-semibold text-cyan-300">Add to Home Screen</span>.</li>
+                  <li>Name it "Idea Vault" and tap <span className="font-semibold text-cyan-300">Add</span> in the top right.</li>
+                </ol>
+                <p className="text-[10px] text-white/40 italic">Note: Custom installation is only supported via the Safari browser on iOS.</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowIOSInstructions(false);
+                  setShowInstallBanner(false);
+                }}
+                className="w-full py-2.5 rounded-xl bg-cyan-500/15 border border-cyan-400/40 text-cyan-200 text-xs font-bold hover:bg-cyan-500/25 transition-all duration-300 cursor-pointer"
+              >
+                Got it
+              </button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
